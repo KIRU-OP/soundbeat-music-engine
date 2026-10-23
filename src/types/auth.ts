@@ -1,21 +1,18 @@
 export interface UserProfile {
   id: string;
   name: string;
-  email?: string;
-  phone?: string;
+  email: string;
   avatar: string;
   plan: 'SoundBeat Free' | '100% Free' | 'Ultra Lossless Member';
   joinedDate: string;
   likedSongsCount: number;
   playlistsCount: number;
   bio?: string;
-  authMethod?: 'phone' | 'google' | 'email' | 'pin';
+  authMethod?: 'gmail' | 'google' | 'email';
   sessionToken?: string;
-  isPhoneVerified?: boolean;
   isEmailVerified?: boolean;
   deviceId?: string;
   lastLogin?: string;
-  securityPIN?: string;
 }
 
 export interface ArtistDetails {

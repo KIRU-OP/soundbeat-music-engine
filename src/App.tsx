@@ -158,7 +158,6 @@ export default function App() {
       <AuthGatekeeper
         onLoginSuccess={handleLoginSuccess}
         defaultEmail="shivampatel425685@gmail.com"
-        defaultPhone="9876543210"
       />
     );
   }

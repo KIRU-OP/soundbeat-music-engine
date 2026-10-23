@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import forge from 'node-forge';
+import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -11,6 +12,326 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+
+// -------------------------------------------------------------
+// SECURE USER DATABASE & AUTHENTICATION ENGINE (GMAIL ACCOUNT SYSTEM)
+// -------------------------------------------------------------
+interface UserRecord {
+  id: string;
+  name: string;
+  email: string;
+  passwordHash: string;
+  salt: string;
+  avatar: string;
+  plan: 'Ultra Lossless Member' | 'SoundBeat Free';
+  joinedDate: string;
+  likedSongsCount: number;
+  playlistsCount: number;
+  bio: string;
+  authMethod: 'gmail' | 'google' | 'email';
+  sessionToken?: string;
+  createdAt: string;
+  lastLogin: string;
+}
+
+const DATA_DIR = path.join(__dirname, 'data');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
+
+function hashPassword(password: string, salt: string): string {
+  return crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
+}
+
+function initializeUserDatabase(): UserRecord[] {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    if (fs.existsSync(USERS_FILE)) {
+      const content = fs.readFileSync(USERS_FILE, 'utf-8');
+      return JSON.parse(content);
+    }
+  } catch (err) {
+    console.error('Error reading users database:', err);
+  }
+
+  // Seed default registered account for Shivam Patel
+  const defaultSalt = crypto.randomBytes(16).toString('hex');
+  const defaultPasswordHash = hashPassword('SoundBeat@2026', defaultSalt);
+  const initialUsers: UserRecord[] = [
+    {
+      id: 'usr_shivampatel',
+      name: 'Shivam Patel',
+      email: 'shivampatel425685@gmail.com',
+      passwordHash: defaultPasswordHash,
+      salt: defaultSalt,
+      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+      plan: 'Ultra Lossless Member',
+      joinedDate: 'Joined Today',
+      likedSongsCount: 42,
+      playlistsCount: 5,
+      bio: 'Good music. Better vibes. 🎵',
+      authMethod: 'gmail',
+      createdAt: new Date().toISOString(),
+      lastLogin: new Date().toISOString(),
+    },
+  ];
+
+  try {
+    fs.writeFileSync(USERS_FILE, JSON.stringify(initialUsers, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Error seeding user database:', err);
+  }
+
+  return initialUsers;
+}
+
+function readUsers(): UserRecord[] {
+  try {
+    if (fs.existsSync(USERS_FILE)) {
+      return JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8'));
+    }
+  } catch (_) {}
+  return initializeUserDatabase();
+}
+
+function writeUsers(users: UserRecord[]): void {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Error writing users database:', err);
+  }
+}
+
+function sanitizeUser(u: UserRecord) {
+  const { passwordHash, salt, ...safe } = u;
+  return safe;
+}
+
+// Ensure database is created on startup
+initializeUserDatabase();
+
+// 1. Sign Up endpoint (Create new account with Gmail & Password)
+app.post('/api/auth/signup', (req: Request, res: Response) => {
+  try {
+    const { name, email, password, avatar } = req.body;
+    if (!name || !email || !password) {
+      return res.status(400).json({ success: false, message: 'Name, Gmail address, and Password are required.' });
+    }
+
+    const cleanEmail = String(email).trim().toLowerCase();
+    if (!cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid Gmail or Email address.' });
+    }
+
+    if (String(password).length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long.' });
+    }
+
+    const users = readUsers();
+    const existing = users.find((u) => u.email.toLowerCase() === cleanEmail);
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        message: 'An account with this Gmail address already exists. Please Sign In.',
+      });
+    }
+
+    const salt = crypto.randomBytes(16).toString('hex');
+    const passwordHash = hashPassword(String(password), salt);
+    const sessionToken = `sb_tok_${crypto.randomBytes(24).toString('hex')}`;
+
+    const newUser: UserRecord = {
+      id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      name: String(name).trim(),
+      email: cleanEmail,
+      passwordHash,
+      salt,
+      avatar:
+        avatar ||
+        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+      plan: 'Ultra Lossless Member',
+      joinedDate: 'Joined Today',
+      likedSongsCount: 0,
+      playlistsCount: 0,
+      bio: 'Good music. Better vibes. 🎵',
+      authMethod: 'gmail',
+      sessionToken,
+      createdAt: new Date().toISOString(),
+      lastLogin: new Date().toISOString(),
+    };
+
+    users.push(newUser);
+    writeUsers(users);
+
+    return res.status(201).json({
+      success: true,
+      message: 'Account successfully registered!',
+      user: sanitizeUser(newUser),
+      token: sessionToken,
+    });
+  } catch (err: any) {
+    console.error('Sign up error:', err);
+    return res.status(500).json({ success: false, message: err.message || 'Error creating account.' });
+  }
+});
+
+// 2. Sign In endpoint (Verify Gmail & Password against database)
+app.post('/api/auth/login', (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'Gmail address and password are required.' });
+    }
+
+    const cleanEmail = String(email).trim().toLowerCase();
+    const users = readUsers();
+    const userIndex = users.findIndex((u) => u.email.toLowerCase() === cleanEmail);
+
+    if (userIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'No registered account found with this Gmail address. Please Sign Up.',
+      });
+    }
+
+    const user = users[userIndex];
+    const incomingHash = hashPassword(String(password), user.salt);
+
+    if (incomingHash !== user.passwordHash) {
+      return res.status(401).json({
+        success: false,
+        message: 'Incorrect password. Please verify your credentials.',
+      });
+    }
+
+    const sessionToken = `sb_tok_${crypto.randomBytes(24).toString('hex')}`;
+    user.sessionToken = sessionToken;
+    user.lastLogin = new Date().toISOString();
+    users[userIndex] = user;
+    writeUsers(users);
+
+    return res.json({
+      success: true,
+      message: 'Login successful!',
+      user: sanitizeUser(user),
+      token: sessionToken,
+    });
+  } catch (err: any) {
+    console.error('Login error:', err);
+    return res.status(500).json({ success: false, message: err.message || 'Error signing in.' });
+  }
+});
+
+// 3. Google 1-Tap authentication endpoint (Finds or auto-registers in database)
+app.post('/api/auth/google', (req: Request, res: Response) => {
+  try {
+    const { name, email, avatar } = req.body;
+    const cleanEmail = String(email || 'shivampatel425685@gmail.com').trim().toLowerCase();
+    const cleanName = String(name || 'Shivam Patel').trim();
+
+    const users = readUsers();
+    let user = users.find((u) => u.email.toLowerCase() === cleanEmail);
+    const sessionToken = `sb_g_tok_${crypto.randomBytes(24).toString('hex')}`;
+
+    if (!user) {
+      // Auto-register google user in database
+      const salt = crypto.randomBytes(16).toString('hex');
+      const passwordHash = hashPassword(crypto.randomBytes(20).toString('hex'), salt);
+      user = {
+        id: `usr_g_${Date.now()}`,
+        name: cleanName,
+        email: cleanEmail,
+        passwordHash,
+        salt,
+        avatar:
+          avatar ||
+          'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+        plan: 'Ultra Lossless Member',
+        joinedDate: 'Joined Today',
+        likedSongsCount: 42,
+        playlistsCount: 5,
+        bio: 'Good music. Better vibes. 🎵',
+        authMethod: 'google',
+        sessionToken,
+        createdAt: new Date().toISOString(),
+        lastLogin: new Date().toISOString(),
+      };
+      users.push(user);
+    } else {
+      user.sessionToken = sessionToken;
+      user.lastLogin = new Date().toISOString();
+    }
+
+    writeUsers(users);
+
+    return res.json({
+      success: true,
+      message: 'Google authentication successful!',
+      user: sanitizeUser(user),
+      token: sessionToken,
+    });
+  } catch (err: any) {
+    console.error('Google auth error:', err);
+    return res.status(500).json({ success: false, message: err.message || 'Google authentication failed.' });
+  }
+});
+
+// 4. Password Reset endpoint
+app.post('/api/auth/reset-password', (req: Request, res: Response) => {
+  try {
+    const { email, newPassword } = req.body;
+    if (!email || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Email and new password are required.' });
+    }
+
+    const cleanEmail = String(email).trim().toLowerCase();
+    const users = readUsers();
+    const userIndex = users.findIndex((u) => u.email.toLowerCase() === cleanEmail);
+
+    if (userIndex === -1) {
+      return res.status(404).json({ success: false, message: 'No account registered with this Gmail.' });
+    }
+
+    const salt = crypto.randomBytes(16).toString('hex');
+    const passwordHash = hashPassword(String(newPassword), salt);
+
+    users[userIndex].salt = salt;
+    users[userIndex].passwordHash = passwordHash;
+    users[userIndex].lastLogin = new Date().toISOString();
+    writeUsers(users);
+
+    return res.json({
+      success: true,
+      message: 'Password has been reset successfully. You can now Sign In with your new password.',
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 5. Auth Database Stats endpoint
+app.get('/api/auth/stats', (_req: Request, res: Response) => {
+  const users = readUsers();
+  return res.json({
+    success: true,
+    data: {
+      totalUsers: users.length,
+      users: users.map((u) => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        plan: u.plan,
+        joinedDate: u.joinedDate,
+        authMethod: u.authMethod,
+        lastLogin: u.lastLogin,
+      })),
+    },
+  });
+});
+
 
 // User agents rotation matching repo
 const USER_AGENTS = [
