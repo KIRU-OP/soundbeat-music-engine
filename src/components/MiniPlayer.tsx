@@ -96,28 +96,51 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
     }
   };
 
+  const img =
+    currentSong?.image?.find((i) => i.quality === '150x150') || currentSong?.image?.[0];
+  const primaryArtist =
+    currentSong?.artists?.primary?.[0]?.name ||
+    currentSong?.artists?.all?.[0]?.name ||
+    'SoundBeat Artist';
+
+  // Mobile Lockscreen / Notification Media Session integration
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'mediaSession' in navigator && currentSong) {
+      const art = img?.url ? [{ src: img.url, sizes: '512x512', type: 'image/jpeg' }] : [];
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentSong.name,
+        artist: primaryArtist,
+        album: currentSong.album?.name || 'SoundBeat Music',
+        artwork: art,
+      });
+
+      navigator.mediaSession.setActionHandler('play', onTogglePlay);
+      navigator.mediaSession.setActionHandler('pause', onTogglePlay);
+      navigator.mediaSession.setActionHandler('nexttrack', onNext);
+      if (onPrev) {
+        navigator.mediaSession.setActionHandler('previoustrack', onPrev);
+      }
+    }
+  }, [currentSong, primaryArtist, img, onTogglePlay, onNext, onPrev]);
+
   if (!currentSong) return null;
 
   const isLiked = favorites.includes(currentSong.id);
-  const img =
-    currentSong.image.find((i) => i.quality === '150x150') || currentSong.image[0];
-  const primaryArtist =
-    currentSong.artists?.primary?.[0]?.name ||
-    currentSong.artists?.all?.[0]?.name ||
-    'SoundBeat Artist';
-
   const currentBitrate = sortedQualities[qualityIndex]?.quality || '320kbps';
 
   return (
     <div className="fixed bottom-16 left-3 right-3 max-w-2xl mx-auto z-40 animate-slideUp">
-      <audio
-        ref={audioRef}
-        src={activeUrl}
-        onTimeUpdate={handleTimeUpdate}
-        onEnded={onNext}
-        onError={handleAudioError}
-        preload="auto"
-      />
+      {/* Hidden audio element rendered only when active audio URL is available */}
+      {activeUrl ? (
+        <audio
+          ref={audioRef}
+          src={activeUrl}
+          onTimeUpdate={handleTimeUpdate}
+          onEnded={onNext}
+          onError={handleAudioError}
+          preload="auto"
+        />
+      ) : null}
 
       {/* Mini Player Container matching Screenshot with Next-Gen Visualizer */}
       <div className="bg-zinc-950/95 backdrop-blur-2xl border border-zinc-800/90 rounded-2xl shadow-2xl p-2.5 flex items-center justify-between gap-3 relative overflow-hidden">
@@ -131,7 +154,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
             className="relative w-12 h-12 rounded-xl overflow-hidden bg-zinc-900 shrink-0 cursor-pointer shadow-md group"
             title="Tap for Lyrics & Details"
           >
-            {img ? (
+            {img?.url ? (
               <img src={img.url} alt="" className="w-full h-full object-cover" />
             ) : (
               <Disc className="w-6 h-6 m-auto text-zinc-600" />

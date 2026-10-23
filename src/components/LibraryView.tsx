@@ -20,6 +20,8 @@ interface LibraryViewProps {
   onOpenLogin: () => void;
   onOpenProfile: () => void;
   onOpenContact?: () => void;
+  onOpenMobile?: () => void;
+  onOpenGitHub?: () => void;
 }
 
 export const LibraryView: React.FC<LibraryViewProps> = ({
@@ -30,6 +32,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   onOpenLogin,
   onOpenProfile,
   onOpenContact,
+  onOpenMobile,
+  onOpenGitHub,
 }) => {
   const likedSongs = allSongs.filter((s) => favorites.includes(s.id));
 
@@ -191,6 +195,47 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Mobile App & GitHub Exporter Action Tiles */}
+      <div className="grid grid-cols-2 gap-3 pt-1">
+        {onOpenMobile && (
+          <div
+            onClick={onOpenMobile}
+            className="p-3.5 rounded-2xl bg-gradient-to-br from-zinc-900 to-emerald-950/40 border border-emerald-500/30 hover:border-emerald-500/60 cursor-pointer transition-all space-y-2 group"
+          >
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-white group-hover:text-emerald-400 transition-colors">
+                Mobile Version (PWA)
+              </h4>
+              <p className="text-[10px] text-zinc-400">
+                Install as Android / iOS app with offline playback
+              </p>
+            </div>
+          </div>
+        )}
+
+        {onOpenGitHub && (
+          <div
+            onClick={onOpenGitHub}
+            className="p-3.5 rounded-2xl bg-zinc-900/80 border border-zinc-700/80 hover:border-zinc-600 cursor-pointer transition-all space-y-2 group"
+          >
+            <div className="w-8 h-8 rounded-xl bg-zinc-800 text-white flex items-center justify-center group-hover:scale-105 transition-transform">
+              <Crown className="w-4 h-4 text-zinc-200" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-white group-hover:text-emerald-400 transition-colors">
+                Upload to GitHub
+              </h4>
+              <p className="text-[10px] text-zinc-400">
+                1-Click Push, CLI sync, or project archive
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Official Channels & Contact Banner */}

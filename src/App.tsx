@@ -8,6 +8,9 @@ import {
   CheckCircle,
   Radio,
   MessageCircle,
+  Smartphone,
+  Github,
+  ShieldCheck,
 } from 'lucide-react';
 import { Song } from './types/saavn';
 import { UserProfile } from './types/auth';
@@ -21,27 +24,23 @@ import { ArtistProfileModal } from './components/ArtistProfileModal';
 import { LyricsModal } from './components/LyricsModal';
 import { ApiExplorer } from './components/ApiExplorer';
 import { ContactChannelsModal } from './components/ContactChannelsModal';
+import { AuthGatekeeper } from './components/AuthGatekeeper';
+import { MobileAppModal } from './components/MobileAppModal';
+import { GitHubExportModal } from './components/GitHubExportModal';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'home' | 'search' | 'library' | 'api'>('home');
 
-  // User Auth State (Initialized with Shivam Patel / Gmail or localStorage)
+  // Strict User Auth State: Mandatory Login Gatekeeper (Cannot open without login)
   const [user, setUser] = useState<UserProfile | null>(() => {
     try {
       const saved = localStorage.getItem('soundbeat_user');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.id) return parsed;
+      }
     } catch (_) {}
-    return {
-      id: 'user_default',
-      name: 'Shivam Patel',
-      email: 'shivampatel425685@gmail.com',
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-      plan: '100% Free',
-      joinedDate: 'Joined Today',
-      likedSongsCount: 42,
-      playlistsCount: 5,
-      bio: 'Good music. Better vibes. 🎵',
-    };
+    return null;
   });
 
   // Modals state
@@ -51,6 +50,8 @@ export default function App() {
   const [isArtistModalOpen, setIsArtistModalOpen] = useState(false);
   const [isLyricsOpen, setIsLyricsOpen] = useState(false);
   const [isContactOpen, setIsContactOpen] = useState(false);
+  const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
+  const [isGitHubModalOpen, setIsGitHubModalOpen] = useState(false);
 
   // Audio Playback State
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
@@ -151,23 +152,54 @@ export default function App() {
     setIsArtistModalOpen(true);
   };
 
+  // MANDATORY AUTH GATEKEEPER: App will not open without verified login
+  if (!user) {
+    return (
+      <AuthGatekeeper
+        onLoginSuccess={handleLoginSuccess}
+        defaultEmail="shivampatel425685@gmail.com"
+        defaultPhone="9876543210"
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#070709] text-zinc-100 flex flex-col font-sans select-none selection:bg-emerald-500 selection:text-black">
-      {/* Top Banner info if API mode is desired */}
-      <div className="max-w-2xl mx-auto w-full px-4 pt-3 flex items-center justify-between">
-        <span className="text-[10px] text-zinc-500 font-mono flex items-center gap-1.5">
+      {/* Top Banner info and global action triggers */}
+      <div className="max-w-2xl mx-auto w-full px-4 pt-3 flex items-center justify-between gap-2 overflow-x-auto scrollbar-none">
+        <span className="text-[10px] text-zinc-500 font-mono flex items-center gap-1.5 shrink-0">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-          KIRU-OP JioSaavn Engine Active
+          KIRU-OP Engine Active
         </span>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Mobile App PWA Button */}
+          <button
+            onClick={() => setIsMobileModalOpen(true)}
+            className="px-2.5 py-1 rounded-full text-[10px] font-mono flex items-center gap-1.5 border bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border-emerald-500/40 transition-all shadow-sm cursor-pointer"
+            title="Install Mobile App for Android & iOS"
+          >
+            <Smartphone className="w-3 h-3 text-emerald-400" />
+            <span>Mobile App</span>
+          </button>
+
+          {/* GitHub Upload Button */}
+          <button
+            onClick={() => setIsGitHubModalOpen(true)}
+            className="px-2.5 py-1 rounded-full text-[10px] font-mono flex items-center gap-1.5 border bg-zinc-900/90 hover:bg-zinc-800 text-zinc-200 border-zinc-750 transition-all shadow-sm cursor-pointer"
+            title="Upload repository to GitHub"
+          >
+            <Github className="w-3 h-3 text-white" />
+            <span>Upload GitHub</span>
+          </button>
+
           {/* Channels & Contact Button */}
           <button
             onClick={() => setIsContactOpen(true)}
             className="px-2.5 py-1 rounded-full text-[10px] font-mono flex items-center gap-1.5 border bg-zinc-900/90 hover:bg-zinc-850 text-emerald-400 border-emerald-500/30 transition-all shadow-sm cursor-pointer"
           >
             <Radio className="w-3 h-3 text-emerald-400" />
-            <span>Channels & Contact</span>
+            <span className="hidden sm:inline">Channels</span>
           </button>
 
           {/* Discreet API Sandbox Switcher */}
@@ -180,7 +212,7 @@ export default function App() {
             }`}
           >
             <Code className="w-3 h-3" />
-            <span>{activeTab === 'api' ? 'Back to App' : 'API Inspector'}</span>
+            <span>{activeTab === 'api' ? 'App' : 'API'}</span>
           </button>
         </div>
       </div>
@@ -218,6 +250,8 @@ export default function App() {
             onOpenLogin={() => setIsLoginOpen(true)}
             onOpenProfile={() => setIsProfileOpen(true)}
             onOpenContact={() => setIsContactOpen(true)}
+            onOpenMobile={() => setIsMobileModalOpen(true)}
+            onOpenGitHub={() => setIsGitHubModalOpen(true)}
           />
         )}
 
@@ -241,7 +275,7 @@ export default function App() {
       />
 
       {/* Bottom Navigation Bar matching Screenshot (Home, Search, Your Library) */}
-      <nav aria-label="Main Navigation" className="fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-2xl border-t border-zinc-900 px-6 py-2">
+      <nav aria-label="Main Navigation" className="fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-2xl border-t border-zinc-900 px-6 py-2 pb-safe">
         <div className="max-w-2xl mx-auto flex items-center justify-around">
           {/* Home */}
           <button
@@ -331,6 +365,18 @@ export default function App() {
         isOpen={isContactOpen}
         onClose={() => setIsContactOpen(false)}
         userEmail={user?.email || 'shivampatel425685@gmail.com'}
+      />
+
+      {/* Mobile PWA App Modal */}
+      <MobileAppModal
+        isOpen={isMobileModalOpen}
+        onClose={() => setIsMobileModalOpen(false)}
+      />
+
+      {/* GitHub Repository Upload & Sync Modal */}
+      <GitHubExportModal
+        isOpen={isGitHubModalOpen}
+        onClose={() => setIsGitHubModalOpen(false)}
       />
     </div>
   );

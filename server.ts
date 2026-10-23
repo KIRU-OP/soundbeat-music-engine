@@ -745,6 +745,152 @@ app.get('/api/stream', async (req: Request, res: Response) => {
   }
 });
 
+// GitHub Integration Endpoints: Push repository, check status, export archive
+app.get('/api/github/git-status', async (_req: Request, res: Response) => {
+  try {
+    const { execSync } = await import('child_process');
+    let lastCommit = 'Unknown';
+    let branch = 'main';
+    let remoteOrigin = '';
+    try {
+      lastCommit = execSync('git log -1 --pretty=format:"%h - %s (%cr)"', { cwd: __dirname }).toString();
+    } catch (_) {}
+    try {
+      branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: __dirname }).toString().trim();
+    } catch (_) {}
+    try {
+      remoteOrigin = execSync('git remote get-url origin 2>/dev/null || echo "None"', { cwd: __dirname }).toString().trim();
+    } catch (_) {}
+
+    return res.json({
+      success: true,
+      data: {
+        branch,
+        lastCommit,
+        remoteOrigin,
+        isGitInitialized: true,
+      },
+    });
+  } catch (e: any) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+app.post('/api/github/push', async (req: Request, res: Response) => {
+  try {
+    const { token, repoName, isPrivate, commitMessage } = req.body;
+    if (!token || !repoName) {
+      return res.status(400).json({ success: false, message: 'GitHub Token and Repository Name are required' });
+    }
+
+    // 1. Verify token with GitHub API & get user info
+    const userRes = await fetch('https://api.github.com/user', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'User-Agent': 'SoundBeat-App',
+        Accept: 'application/vnd.github+json',
+      },
+    });
+
+    if (!userRes.ok) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid GitHub Token or authorization failed. Please verify your token has "repo" scope.',
+      });
+    }
+
+    const userData = await userRes.json();
+    const username = userData.login;
+    const cleanRepo = repoName.trim().replace(/[^a-zA-Z0-9_.-]/g, '-');
+
+    // 2. Check if repo exists; if not, create it
+    const checkRepoRes = await fetch(`https://api.github.com/repos/${username}/${cleanRepo}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'User-Agent': 'SoundBeat-App',
+        Accept: 'application/vnd.github+json',
+      },
+    });
+
+    if (checkRepoRes.status === 404) {
+      // Create repository on user's GitHub
+      const createRes = await fetch('https://api.github.com/user/repos', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'User-Agent': 'SoundBeat-App',
+          Accept: 'application/vnd.github+json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: cleanRepo,
+          description: 'SoundBeat • Music Streaming Engine with Lossless Playback & PWA Mobile App',
+          private: Boolean(isPrivate),
+          has_issues: true,
+        }),
+      });
+
+      if (!createRes.ok) {
+        const errJson = await createRes.json();
+        return res.status(400).json({
+          success: false,
+          message: errJson.message || 'Failed to create repository on GitHub.',
+        });
+      }
+    }
+
+    // 3. Stage and commit latest files
+    const { execSync } = await import('child_process');
+    const msg = (commitMessage || 'feat: SoundBeat Music App with PWA & Strong Auth').replace(/"/g, '\\"');
+    try {
+      execSync(`git add -A && git commit -m "${msg}"`, { cwd: __dirname });
+    } catch (_) {}
+
+    // 4. Push directly to the authenticated remote
+    const authenticatedRemote = `https://${encodeURIComponent(token)}@github.com/${username}/${cleanRepo}.git`;
+    execSync(`git remote remove origin 2>/dev/null || true`, { cwd: __dirname });
+    execSync(`git remote add origin "${authenticatedRemote}"`, { cwd: __dirname });
+    execSync(`git branch -M main`, { cwd: __dirname });
+    execSync(`git push -u origin main --force`, { cwd: __dirname });
+    // Remove token from origin configuration
+    execSync(`git remote set-url origin "https://github.com/${username}/${cleanRepo}.git"`, { cwd: __dirname });
+
+    const repoUrl = `https://github.com/${username}/${cleanRepo}`;
+    return res.json({
+      success: true,
+      message: `Repository successfully published to GitHub!`,
+      repoUrl,
+      owner: username,
+      repoName: cleanRepo,
+    });
+  } catch (err: any) {
+    console.error('GitHub push error:', err);
+    return res.status(500).json({
+      success: false,
+      message: err.message || 'Error occurred while pushing to GitHub.',
+    });
+  }
+});
+
+app.get('/api/github/download-archive', async (_req: Request, res: Response) => {
+  try {
+    const { execSync } = await import('child_process');
+    const archivePath = path.join(__dirname, 'soundbeat-repo.tar.gz');
+    // Archive project files excluding heavy node_modules and build artifacts
+    execSync(`tar --exclude="node_modules" --exclude=".git" --exclude="dist" -czf "${archivePath}" .`, { cwd: __dirname });
+    res.download(archivePath, 'soundbeat-music-app.tar.gz', (err) => {
+      try {
+        if (fs.existsSync(archivePath)) fs.unlinkSync(archivePath);
+      } catch (_) {}
+      if (err) console.error('Download archive error:', err);
+    });
+  } catch (e: any) {
+    res.status(500).send(e.message);
+  }
+});
+
+
+
 // Repository Metadata and Audit endpoint for the user's inquiry
 app.get('/api/repo-info', (_req: Request, res: Response) => {
   res.json({

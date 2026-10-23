@@ -192,15 +192,17 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   return (
     <aside aria-label="Audio player" className="fixed bottom-0 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur-xl border-t border-zinc-800 shadow-2xl px-4 py-3">
       {/* Hidden native audio element */}
-      <audio
-        ref={audioRef}
-        src={activeUrl || undefined}
-        onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={handleLoadedMetadata}
-        onEnded={handleEnded}
-        onError={handleAudioError}
-        preload="auto"
-      />
+      {activeUrl ? (
+        <audio
+          ref={audioRef}
+          src={activeUrl}
+          onTimeUpdate={handleTimeUpdate}
+          onLoadedMetadata={handleLoadedMetadata}
+          onEnded={handleEnded}
+          onError={handleAudioError}
+          preload="auto"
+        />
+      ) : null}
 
       {/* Fallback Notice Banner */}
       {errorMessage && (

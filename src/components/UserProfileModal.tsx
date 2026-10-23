@@ -80,7 +80,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           {/* Avatar with Ring */}
           <div className="relative group">
             <img
-              src={avatar}
+              src={avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'}
               alt={user.name}
               className="w-24 h-24 rounded-full object-cover border-3 border-emerald-500 shadow-xl shadow-emerald-950/60"
             />

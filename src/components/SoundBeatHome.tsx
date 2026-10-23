@@ -268,7 +268,7 @@ export const SoundBeatHome: React.FC<SoundBeatHomeProps> = ({
               title={`${user.name} Profile`}
             >
               <img
-                src={user.avatar}
+                src={user.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'}
                 alt={user.name}
                 className="w-8 h-8 rounded-full object-cover"
               />
@@ -478,13 +478,13 @@ export const SoundBeatHome: React.FC<SoundBeatHomeProps> = ({
                       <Play className="w-3.5 h-3.5 fill-current" />
                     </button>
 
-                    {img && (
+                    {img?.url ? (
                       <img
                         src={img.url}
                         alt=""
                         className="w-10 h-10 rounded-lg object-cover shadow"
                       />
-                    )}
+                    ) : null}
 
                     <div className="min-w-0">
                       <p
