@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">SoundBeat</string>
+    <string name="app_version">2.4.0</string>
+    <string name="package_name">com.soundbeat.music</string>
+</resources>

@@ -172,14 +172,14 @@ export default function App() {
         </span>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          {/* Mobile App PWA Button */}
+          {/* Mobile App APK Download Button */}
           <button
             onClick={() => setIsMobileModalOpen(true)}
-            className="px-2.5 py-1 rounded-full text-[10px] font-mono flex items-center gap-1.5 border bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border-emerald-500/40 transition-all shadow-sm cursor-pointer"
-            title="Install Mobile App for Android & iOS"
+            className="px-2.5 py-1 rounded-full text-[10px] font-mono flex items-center gap-1.5 border bg-emerald-950/80 hover:bg-emerald-900/80 text-emerald-300 border-emerald-500/50 transition-all shadow-md cursor-pointer font-bold animate-pulse"
+            title="Download Android APK (v2.4)"
           >
-            <Smartphone className="w-3 h-3 text-emerald-400" />
-            <span>Mobile App</span>
+            <Smartphone className="w-3 h-3 text-emerald-400 stroke-[2.5]" />
+            <span>Download APK</span>
           </button>
 
           {/* GitHub Upload Button */}

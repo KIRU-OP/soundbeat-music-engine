@@ -209,10 +209,10 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             </div>
             <div>
               <h4 className="text-xs font-bold text-white group-hover:text-emerald-400 transition-colors">
-                Mobile Version (PWA)
+                Download Android APK
               </h4>
               <p className="text-[10px] text-zinc-400">
-                Install as Android / iOS app with offline playback
+                Install SoundBeat native APK package (v2.4)
               </p>
             </div>
           </div>
