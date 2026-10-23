@@ -1,0 +1,8 @@
+{
+  "name": "Remix JioSaavn API Wrapper",
+  "description": "A lightweight interface to access and integrate JioSaavn music streaming data into your own applications.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
