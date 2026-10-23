@@ -5,7 +5,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 // @ts-ignore
-import archiver from 'archiver';
+import { ZipArchive } from 'archiver';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1238,7 +1238,7 @@ app.get('/api/download/apk', async (_req: Request, res: Response) => {
     res.setHeader('Content-Type', 'application/vnd.android.package-archive');
     res.setHeader('Content-Disposition', 'attachment; filename="SoundBeat-Music-v2.4.apk"');
 
-    const archive = archiver('zip', { zlib: { level: 9 } });
+    const archive = new (ZipArchive as any)({ zlib: { level: 9 } });
     archive.pipe(res);
 
     // 1. AndroidManifest.xml
@@ -1297,7 +1297,7 @@ app.get('/api/download/android-project', async (_req: Request, res: Response) =>
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', 'attachment; filename="soundbeat-android-studio-project.zip"');
 
-    const archive = archiver('zip', { zlib: { level: 9 } });
+    const archive = new (ZipArchive as any)({ zlib: { level: 9 } });
     archive.pipe(res);
 
     const androidDir = path.join(__dirname, 'android');
